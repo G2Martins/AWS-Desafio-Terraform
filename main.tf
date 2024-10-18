@@ -158,6 +158,53 @@ resource "aws_instance" "debian_ec2" {
   }
 }
 
+# Adicionando o S3 Bucket para backups (BKP na nuvem)
+resource "aws_s3_bucket" "backup_bucket" {
+  bucket = "${var.projeto}-${var.candidato}-backup"
+  
+  versioning {
+    enabled = true
+  }
+
+  tags = {
+    Name = "${var.projeto}-${var.candidato}-backup-bucket"
+  }
+}
+
+# Adicionando IAM para controle de acesso e segurança
+resource "aws_iam_user" "terraform_user" {
+  name = "terraform-user"
+
+  tags = {
+    Name = "${var.projeto}-${var.candidato}-terraform-user"
+  }
+}
+
+resource "aws_iam_policy" "terraform_policy" {
+  name = "TerraformPolicy"
+  
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action   = "ec2:*",
+        Effect   = "Allow",
+        Resource = "*"
+      },
+      {
+        Action   = "s3:*",
+        Effect   = "Allow",
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_user_policy_attachment" "user_policy_attach" {
+  user       = aws_iam_user.terraform_user.name
+  policy_arn = aws_iam_policy.terraform_policy.arn
+}
+
 output "private_key" {
   description = "Chave privada para acessar a instância EC2"
   value       = tls_private_key.ec2_key.private_key_pem

@@ -45,6 +45,14 @@ Este projeto usa o Terraform para provisionar uma infraestrutura básica na AWS.
   - Instalação do Nginx via `apt-get install nginx`.
   - Inicialização e habilitação do Nginx para iniciar automaticamente com o sistema.
 
+### 3. **Backup na Nuvem com S3**
+- Um bucket S3 foi criado para armazenar backups. O bucket possui versionamento habilitado, garantindo que diferentes versões de arquivos podem ser salvas para recuperação futura. Isso proporciona maior segurança e controle sobre os dados armazenados.
+
+### 4. **Controle de Acesso com IAM**
+- Um usuário IAM foi criado com permissões limitadas para o gerenciamento de recursos EC2 e S3. Isso garante que o acesso ao gerenciamento da infraestrutura e backups é restrito, promovendo uma política de segurança mínima necessária.
+- Uma política personalizada foi aplicada ao usuário, permitindo ações específicas apenas sobre os recursos necessários (EC2 e S3).
+
+
 ## Instruções de Uso
 
 ### 🛠️ Pré-requisitos
