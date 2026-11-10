@@ -1,100 +1,84 @@
+# AWS + Terraform: VPC, EC2 e Nginx como código
 
-# Terraform AWS Infraestrutura
+**Página do projeto:** https://g2martins.github.io/AWS-Desafio-Terraform/
+**Portfólio:** https://g2portfolio.grovicdata.com/projetos/aws-terraform/
 
-## Descrição Técnica
+Desafio técnico de processo seletivo (VExpenses, outubro de 2024): partir de um `main.tf` base, descrever cada recurso,
+reforçar a segurança, instalar o Nginx automaticamente na EC2 e documentar tudo. O arquivo entregue continua intacto
+em [`main.tf`](main.tf) (o estado anterior à página está na tag `v1-original`). A página mostra o código destacado, um
+diagrama clicável da arquitetura e uma revisão feita em 2026.
 
-Este projeto usa o Terraform para provisionar uma infraestrutura básica na AWS. O código define e implementa os seguintes recursos:
+## O que o `main.tf` cria
 
-1. **Provedor AWS**: Define o provedor AWS na região `us-east-1`.
-2. **Variáveis**: Variáveis para o nome do projeto e do candidato, usadas para personalizar os nomes dos recursos.
-3. **Par de Chaves**:
-   - Gera uma chave privada RSA (2048 bits) para acesso à instância EC2.
-   - Cria um par de chaves na AWS usando a chave pública gerada.
-4. **VPC (Virtual Private Cloud)**:
-   - Cria uma VPC com o bloco CIDR `10.0.0.0/16`.
-   - Habilita DNS e hostnames.
-5. **Subrede**:
-   - Cria uma subrede dentro da VPC com o bloco CIDR `10.0.1.0/24`.
-   - Localizada na zona de disponibilidade `us-east-1a`.
-6. **Internet Gateway**:
-   - Cria um Internet Gateway para permitir a comunicação da VPC com a internet.
-7. **Tabela de Rotas**:
-   - Cria uma tabela de rotas que permite o tráfego de saída para a internet.
-8. **Associação da Tabela de Rotas**:
-   - Associa a tabela de rotas criada à subrede.
-9. **Grupo de Segurança**:
-   - Permite o tráfego SSH (porta 22) de qualquer lugar.
-   - Permite todo o tráfego de saída.
-10. **Instância EC2**:
-   - Cria uma instância EC2 do tipo `t2.micro` usando uma AMI Debian 12.
-   - Define as configurações básicas da instância, como volume de armazenamento e segurança.
-   - Inclui um script básico de `user_data` que realiza atualizações do sistema ao iniciar a instância.
-11. **Outputs**:
-   - Exibe a chave privada para acessar a instância EC2.
-   - Exibe o endereço IP público da instância EC2.
+| Recurso | Para quê |
+|---|---|
+| `aws_vpc.main_vpc` | VPC `10.0.0.0/16` com DNS e hostnames |
+| `aws_subnet.main_subnet` | Sub-rede pública `10.0.1.0/24` em `us-east-1a` |
+| `aws_internet_gateway.main_igw` + `aws_route_table` + associação | Rota `0.0.0.0/0` para a internet |
+| `aws_security_group.main_sg` | Entrada só SSH (22) de `203.0.113.0/24`; saída só 80 e 443 |
+| `data.aws_ami.debian12` + `aws_instance.debian_ec2` | EC2 `t2.micro` Debian 12, IP público, `user_data` que instala e habilita o Nginx |
+| `tls_private_key` + `aws_key_pair` | Par de chaves RSA 2048 gerado pelo Terraform (chave privada em output sensível) |
+| `aws_s3_bucket.backup_bucket` | Bucket de backup com versionamento |
+| `aws_iam_user` + `aws_iam_policy` + anexo | Usuário IAM com política `ec2:*` e `s3:*` |
 
-## Alterações Realizadas
+## Revisão de 2026 (o que impede o `apply` hoje)
 
-### 1. **Melhorias de Segurança**
-- **SSH Restrito**: O acesso SSH foi limitado ao intervalo de IPs `203.0.113.0/24`, restringindo o acesso apenas a IPs confiáveis.
-- **Tráfego de Saída Restrito**: As regras de saída foram ajustadas para permitir apenas tráfego nas portas HTTP (80) e HTTPS (443), restringindo outros tipos de tráfego que poderiam expor o sistema.
+Leitura do código, sem aplicar na AWS. O arquivo foi mantido como entregue.
 
-### 2. **Automação da Instalação do Nginx**
-- O script `user_data` foi atualizado para realizar a instalação automática do Nginx na instância EC2 logo após sua criação.
-- Comandos adicionados no script:
-  - Instalação do Nginx via `apt-get install nginx`.
-  - Inicialização e habilitação do Nginx para iniciar automaticamente com o sistema.
+1. `aws_route_table_association` não aceita `tags` (o `terraform validate` acusa argumento não suportado).
+2. `security_groups` (nomes) só vale na VPC padrão; numa VPC própria use `vpc_security_group_ids = [aws_security_group.main_sg.id]`.
+3. O nome do bucket resolve para `VExpenses-SeuNome-backup`, mas o S3 só aceita minúsculas (e o nome é global). O bloco
+   `versioning` embutido está obsoleto desde o provider 4 (o recurso atual é `aws_s3_bucket_versioning`).
+4. `203.0.113.0/24` é faixa de documentação (RFC 5737): troque pelo seu IP `/32`.
+5. Não há regra de entrada na porta 80: o Nginx roda, mas não é alcançável de fora.
 
-### 3. **Backup na Nuvem com S3**
-- Um bucket S3 foi criado para armazenar backups. O bucket possui versionamento habilitado, garantindo que diferentes versões de arquivos podem ser salvas para recuperação futura. Isso proporciona maior segurança e controle sobre os dados armazenados.
+Endurecimento para produção: SSM Session Manager no lugar de SSH, IMDSv2 obrigatório (`http_tokens = "required"`),
+state remoto no S3 com criptografia e lock, `default_tags` no provider, `required_providers` com versões fixas, disco
+`gp3` cifrado, política IAM com ações e recursos específicos e papel com credencial temporária no lugar de usuário IAM.
 
-### 4. **Controle de Acesso com IAM**
-- Um usuário IAM foi criado com permissões limitadas para o gerenciamento de recursos EC2 e S3. Isso garante que o acesso ao gerenciamento da infraestrutura e backups é restrito, promovendo uma política de segurança mínima necessária.
-- Uma política personalizada foi aplicada ao usuário, permitindo ações específicas apenas sobre os recursos necessários (EC2 e S3).
+## Como rodar
 
+Pré-requisitos: Terraform CLI 1.x, AWS CLI v2 e uma conta AWS de estudo (nunca produção, nunca o usuário root). Aplique
+antes os ajustes da revisão.
 
-## Instruções de Uso
+**Credenciais:** nenhuma no código. Use login temporário (`aws configure sso`, `aws sso login --profile desafio` e
+`AWS_PROFILE=desafio`) ou, no CI, papel assumido via OIDC. O `.gitignore` barra `.terraform/`, `*.tfstate*`, `*.tfplan`
+e `*.pem`.
 
-### 🛠️ Pré-requisitos
-- **Terraform**: Certifique-se de que o Terraform está instalado. [Instruções de instalação](https://learn.hashicorp.com/tutorials/terraform/install-cli).
-- **AWS CLI**: Configure suas credenciais AWS usando o AWS CLI.
+```bash
+terraform init
+terraform fmt -check && terraform validate
+terraform plan -out plano.tfplan
+terraform apply plano.tfplan
+terraform output ec2_public_ip
+terraform output -raw private_key > chave.pem && chmod 400 chave.pem   # fica só na sua máquina
+ssh -i chave.pem admin@<ip-publico>
+terraform destroy                                                       # ao terminar
+```
 
-### Configuração
-1. Clone o repositório e navegue até o diretório do projeto.
-   ```bash
-   git clone <repositório>
-   cd <diretório-do-projeto>
-   ```
-2. Inicialize o Terraform no diretório.
-   ```bash
-   terraform init
-   ```
-3. Visualize o plano de execução para verificar o que será criado.
-   ```bash
-   terraform plan
-   ```
-4. Aplique as mudanças para criar a infraestrutura na AWS.
-   ```bash
-   terraform apply
-   ```
-   Confirme a aplicação digitando `yes` quando solicitado.
+**Custo:** `t2.micro`, 20 GB de EBS e o IPv4 público cabem no free tier clássico (contas anteriores a 15/07/2025, 12
+meses); contas novas usam o plano gratuito com créditos. O bucket versionado cobra por armazenamento, e com objetos
+dentro o `destroy` falha (`BucketNotEmpty`) até você esvaziá-lo. Confira os preços da AWS antes de aplicar.
 
-5. Após a aplicação bem-sucedida, os seguintes outputs estarão disponíveis:
-   - **Chave Privada**: A chave privada gerada para acessar a instância EC2.
-   - **Endereço IP Público**: O IP público da instância EC2 criada.
+## A página (`site/`)
 
-### Acessando a Instância EC2
-1. Salve a chave privada em um arquivo `.pem` e altere suas permissões:
-   ```bash
-   echo "<conteúdo da chave privada>" > my-key.pem
-   chmod 400 my-key.pem
-   ```
-2. Conecte-se à instância EC2 via SSH:
-   ```bash
-   ssh -i my-key.pem admin@<endereço-ip-público>
-   ```
+Angular 21.2 com prerender (SSG), Tailwind v4, Geist/Geist Mono self-hosted, linguagem visual Valerium. O destaque de
+sintaxe roda no build: `site/scripts/code.ts` lê todo `.tf`/`.sh` da raiz e gera `site/src/app/data/code.json`
+(tokens por linha + índice de linhas por endereço Terraform, usado pelos links do diagrama). O corpo da página é
+`@defer (hydrate never)`: HTML estático, e o código do componente nunca é baixado.
 
-A instância já estará configurada com o Nginx rodando no servidor ✅.
+```bash
+cd site
+npm install
+npm start            # dev: http://localhost:4200/AWS-Desafio-Terraform/
+npm run build:pages  # tokens + build + check + copia para ../docs (GitHub Pages: main, /docs)
+npm run og           # imagem OG 1200x630 + ícones PNG (Playwright, Python)
+```
 
-## 📚 Documentação
-- [Terraform Documentation](https://developer.hashicorp.com/terraform/docs)
+`npm run check` falha se faltar SEO (título, descrição, canonical, OG, JSON-LD), se algum link interno não terminar em
+`/`, se uma âncora `#L..` não existir, se o lexer não reconstruir o arquivo exato, se houver travessão longo no texto ou
+se aparecer qualquer padrão de chave de acesso AWS.
+
+---
+
+Projeto de portfólio de Gustavo Martins Gripaldi · [g2portfolio.grovicdata.com](https://g2portfolio.grovicdata.com/)

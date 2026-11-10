@@ -1,0 +1,255 @@
+<header class="wrap top">
+  <a class="brand" href="./">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="var(--accent)"/><path d="M9 11.5 16 8l7 3.5v9L16 24l-7-3.5z M9 11.5l7 3.5 7-3.5 M16 15v9" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linejoin="round"/></svg>
+    <span>AWS <i>·</i> Terraform</span>
+  </a>
+  <nav aria-label="Seções" class="nav">
+    <a href="#desafio">Desafio</a>
+    <a href="#arquitetura">Arquitetura</a>
+    <a href="#codigo">Código</a>
+    <a href="#rodar">Como rodar</a>
+    <a href="#seguranca">Segurança</a>
+    <a href="#custo">Custo</a>
+  </nav>
+  <a class="btn btn-line gh" [href]="links.repo"><span class="bi-gh" aria-hidden="true"></span><span>GitHub</span></a>
+</header>
+
+<main id="conteudo">
+  <!-- Hero -->
+  <section class="wrap hero">
+    <div>
+      <p class="eyebrow">Desafio técnico · outubro de 2024</p>
+      <h1 class="h-display">VPC, EC2 e Nginx na AWS, descritos num único <span class="mono hl">main.tf</span>.</h1>
+      <p class="lede">
+        Infraestrutura como código para um processo seletivo (VExpenses): rede isolada, sub-rede pública, security group
+        restritivo e uma instância Debian 12 que já sobe servindo Nginx. Aqui está o código real, o desenho do que ele cria
+        e uma revisão honesta, feita em 2026, do que eu mudaria antes de levar para produção.
+      </p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#arquitetura">Ver a arquitetura</a>
+        <a class="btn btn-line" href="#codigo">Ler o main.tf</a>
+      </div>
+      <dl class="stats">
+        <div><dt>Recursos</dt><dd>{{ count('resource') }}</dd></div>
+        <div><dt>Data source</dt><dd>{{ count('data') }}</dd></div>
+        <div><dt>Outputs</dt><dd>{{ count('output') }}</dd></div>
+        <div><dt>Região</dt><dd class="mono">us-east-1</dd></div>
+      </dl>
+    </div>
+    <aside class="card inv ticks" aria-labelledby="inv-t">
+      <div class="inv-head">
+        <p id="inv-t" class="eyebrow">Inventário do main.tf</p>
+        <span class="tag">gerado do arquivo</span>
+      </div>
+      <ol>
+        @for (i of inventory; track i.addr) {
+          <li><a [href]="'#L' + i.line"><span class="k k-{{ i.kind }}" aria-hidden="true"></span><span class="addr">{{ i.addr }}</span><span class="no">L{{ i.line }}</span></a></li>
+        }
+      </ol>
+    </aside>
+  </section>
+
+  <!-- 01 Desafio -->
+  <section id="desafio" class="wrap sec reveal" aria-labelledby="desafio-t">
+    <p class="eyebrow">01 · O desafio</p>
+    <h2 id="desafio-t" class="h2">Pegar um <span class="mono">main.tf</span> base, entender, endurecer e automatizar.</h2>
+    <div class="grid2">
+      <div class="panel pad">
+        <h3>O que foi pedido</h3>
+        <ol class="steps">
+          <li><b>Análise técnica.</b> Descrever cada recurso do arquivo fornecido: provider, chaves, rede, security group, EC2 e outputs.</li>
+          <li><b>Melhorias de segurança.</b> Fechar o que estava aberto demais no código base.</li>
+          <li><b>Nginx automático.</b> A instância precisa instalar e iniciar o Nginx sozinha, já na criação.</li>
+          <li><b>Documentação.</b> Explicar as mudanças e como rodar.</li>
+        </ol>
+        <p class="note">Reconstruído a partir do README da entrega; o enunciado original não está no repositório.</p>
+      </div>
+      <div>
+        <h3 class="sr-only">O que eu entreguei</h3>
+        <ul class="deliv">
+          <li class="card pad"><span class="tag">ingress</span><p><b>SSH só de uma faixa de IP</b> (<span class="mono">203.0.113.0/24</span>), em vez de qualquer origem.</p><a [href]="'#L' + at('aws_security_group.main_sg:cidr_blocks')">linha {{ at('aws_security_group.main_sg:cidr_blocks') }}</a></li>
+          <li class="card pad"><span class="tag">egress</span><p><b>Saída limitada a 80 e 443</b>: o suficiente para o apt e downloads.</p><a [href]="'#L' + at('aws_security_group.main_sg:egress')">linha {{ at('aws_security_group.main_sg:egress') }}</a></li>
+          <li class="card pad"><span class="tag">user_data</span><p><b>Nginx no boot</b>: atualiza pacotes, instala, inicia e habilita o serviço.</p><a [href]="'#L' + at('aws_instance.debian_ec2:user_data')">linha {{ at('aws_instance.debian_ec2:user_data') }}</a></li>
+          <li class="card pad"><span class="tag">s3 + iam</span><p><b>Extras</b>: bucket de backup com versionamento e um usuário IAM com política própria.</p><a [href]="'#L' + at('aws_s3_bucket.backup_bucket')">linha {{ at('aws_s3_bucket.backup_bucket') }}</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 Arquitetura -->
+  <section id="arquitetura" class="wrap sec" aria-labelledby="arq-t">
+    <p class="eyebrow">02 · Arquitetura</p>
+    <h2 id="arq-t" class="h2">O que o <span class="mono">terraform apply</span> cria</h2>
+    <p class="sub">Cada caixa é um recurso do <span class="mono">main.tf</span>. Clique para ir direto à linha.</p>
+    <div class="arch">
+      <figure class="card diagram">
+        <app-diagram />
+        <figcaption class="sr-only">Diagrama: Internet, Internet Gateway, tabela de rotas, VPC, sub-rede pública, security group e instância EC2 com Nginx; fora da VPC, par de chaves, bucket S3 e IAM.</figcaption>
+      </figure>
+      <ol class="legend">
+        <li><span class="n">1</span><div><h3>Internet</h3><p>De fora, só entra SSH vindo de <span class="mono">203.0.113.0/24</span>. Não há regra de entrada para a porta 80.</p><a [href]="'#L' + at('aws_security_group.main_sg:ingress')">ingress, L{{ at('aws_security_group.main_sg:ingress') }}</a></div></li>
+        <li><span class="n">2</span><div><h3>Internet Gateway</h3><p>A porta da VPC para a internet. Sem ele, nada entra nem sai.</p><a [href]="'#L' + at('aws_internet_gateway.main_igw')">aws_internet_gateway.main_igw, L{{ at('aws_internet_gateway.main_igw') }}</a></div></li>
+        <li><span class="n">3</span><div><h3>Tabela de rotas</h3><p>Rota <span class="mono">0.0.0.0/0</span> para o IGW, associada à sub-rede: é isso que a torna pública.</p><a [href]="'#L' + at('aws_route_table.main_route_table')">aws_route_table, L{{ at('aws_route_table.main_route_table') }}</a> <a [href]="'#L' + at('aws_route_table_association.main_association')">association, L{{ at('aws_route_table_association.main_association') }}</a></div></li>
+        <li><span class="n">4</span><div><h3>VPC</h3><p><span class="mono">10.0.0.0/16</span> com resolução de DNS e hostnames ligados.</p><a [href]="'#L' + at('aws_vpc.main_vpc')">aws_vpc.main_vpc, L{{ at('aws_vpc.main_vpc') }}</a></div></li>
+        <li><span class="n">5</span><div><h3>Sub-rede pública</h3><p><span class="mono">10.0.1.0/24</span> fixa em <span class="mono">us-east-1a</span>.</p><a [href]="'#L' + at('aws_subnet.main_subnet')">aws_subnet.main_subnet, L{{ at('aws_subnet.main_subnet') }}</a></div></li>
+        <li><span class="n">6</span><div><h3>Security group</h3><p>Entrada: 22/tcp da faixa permitida. Saída: só 80 e 443 para qualquer destino.</p><a [href]="'#L' + at('aws_security_group.main_sg')">aws_security_group.main_sg, L{{ at('aws_security_group.main_sg') }}</a></div></li>
+        <li><span class="n">7</span><div><h3>EC2 Debian 12</h3><p><span class="mono">t2.micro</span>, AMI mais recente pelo filtro <span class="mono">debian-12-amd64-*</span>, IP público e disco gp2 de 20 GB.</p><a [href]="'#L' + at('aws_instance.debian_ec2')">aws_instance.debian_ec2, L{{ at('aws_instance.debian_ec2') }}</a> <a [href]="'#L' + at('data.aws_ami.debian12')">data.aws_ami, L{{ at('data.aws_ami.debian12') }}</a></div></li>
+        <li><span class="n">8</span><div><h3>user_data: Nginx</h3><p>Script de boot: <span class="mono">apt-get update</span>, upgrade, instala o Nginx e deixa o serviço habilitado.</p><a [href]="'#L' + at('aws_instance.debian_ec2:user_data')">user_data, L{{ at('aws_instance.debian_ec2:user_data') }}</a></div></li>
+        <li><span class="n">9</span><div><h3>Par de chaves</h3><p>RSA 2048 gerada pelo provider <span class="mono">tls</span>; a chave privada sai num output marcado como sensível.</p><a [href]="'#L' + at('tls_private_key.ec2_key')">tls_private_key, L{{ at('tls_private_key.ec2_key') }}</a> <a [href]="'#L' + at('output.private_key')">output, L{{ at('output.private_key') }}</a></div></li>
+        <li><span class="n">10</span><div><h3>Bucket S3 de backup</h3><p>Versionamento ligado para guardar versões anteriores dos arquivos.</p><a [href]="'#L' + at('aws_s3_bucket.backup_bucket')">aws_s3_bucket, L{{ at('aws_s3_bucket.backup_bucket') }}</a></div></li>
+        <li><span class="n">11</span><div><h3>IAM</h3><p>Usuário <span class="mono">terraform-user</span> com a política <span class="mono">TerraformPolicy</span> anexada.</p><a [href]="'#L' + at('aws_iam_user.terraform_user')">aws_iam_user, L{{ at('aws_iam_user.terraform_user') }}</a> <a [href]="'#L' + at('aws_iam_policy.terraform_policy')">policy, L{{ at('aws_iam_policy.terraform_policy') }}</a></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 03 Código -->
+  <section id="codigo" class="wrap sec" aria-labelledby="cod-t">
+    <p class="eyebrow">03 · Código</p>
+    <h2 id="cod-t" class="h2">O arquivo da entrega, linha por linha</h2>
+    <p class="sub">Arquivo real do repositório, destacado no build (nenhuma biblioteca de highlight roda no navegador). Os links do diagrama e do inventário caem na linha exata.</p>
+    @for (f of files; track f.name) {
+      <div class="card file">
+        <div class="file-head">
+          <span class="mono">{{ f.name }}</span>
+          <span class="tag">HCL · {{ f.lines.length }} linhas</span>
+          <a class="file-gh" [href]="links.repo + '/blob/main/' + f.name">Abrir no GitHub</a>
+        </div>
+        <div class="code" role="region" [attr.aria-label]="'Código de ' + f.name" tabindex="0">
+          @for (line of f.lines; track $index) {
+            <div class="ln" [id]="anchor(f.name, $index + 1)"><a class="no" [href]="'#' + anchor(f.name, $index + 1)" tabindex="-1" aria-hidden="true">{{ $index + 1 }}</a><span class="lc">@for (t of line; track $index) {@if (t[0]) {<span [class]="t[0]">{{ t[1] }}</span>} @else {<ng-container>{{ t[1] }}</ng-container>}}</span></div>
+          }
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- 04 Como rodar -->
+  <section id="rodar" class="wrap sec reveal" aria-labelledby="rodar-t">
+    <p class="eyebrow">04 · Como rodar</p>
+    <h2 id="rodar-t" class="h2">Do <span class="mono">init</span> ao <span class="mono">destroy</span>, sem nenhuma credencial no código</h2>
+    <div class="grid2">
+      <div class="stack">
+        <div class="panel pad">
+          <h3>Pré-requisitos</h3>
+          <ul class="dots">
+            <li>Terraform CLI 1.x e AWS CLI v2 instalados.</li>
+            <li>Uma conta AWS de estudo (nunca a conta de produção, nunca o usuário root) com permissão para VPC, EC2, S3 e IAM.</li>
+            <li>Os ajustes da <a href="#revisao">revisão</a> aplicados: do jeito que está, o arquivo não passa do <span class="mono">validate</span>.</li>
+          </ul>
+        </div>
+        <div class="panel pad">
+          <h3>Credenciais</h3>
+          <p>O provider <span class="mono">aws</span> lê as credenciais do ambiente; o <span class="mono">main.tf</span> não tem nenhuma, e deve continuar assim.</p>
+          <ul class="dots">
+            <li>Login temporário com <span class="mono">aws configure sso</span> e <span class="mono">aws sso login --profile desafio</span>, depois <span class="mono">AWS_PROFILE=desafio</span> no terminal.</li>
+            <li>No CI, papel assumido via OIDC (GitHub Actions), sem chave fixa guardada em lugar nenhum.</li>
+            <li>Nunca: chave no bloco <span class="mono">provider</span>, em <span class="mono">.tfvars</span> versionado ou no README. O <span class="mono">.gitignore</span> do repositório já barra <span class="mono">.terraform/</span> e <span class="mono">*.tfstate*</span>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card term" role="region" aria-label="Comandos" tabindex="0">
+        <div class="file-head"><span class="mono">terminal</span><span class="tag">bash</span></div>
+<pre><span class="t-com"># 1. baixa os providers (aws e tls)</span>
+terraform init
+<span class="t-com"># 2. formatação e sintaxe</span>
+terraform fmt -check
+terraform validate
+<span class="t-com"># 3. revisa o que vai ser criado</span>
+terraform plan -out plano.tfplan
+<span class="t-com"># 4. cria exatamente o que está no plano</span>
+terraform apply plano.tfplan
+<span class="t-com"># 5. IP público da instância</span>
+terraform output ec2_public_ip
+<span class="t-com"># 6. chave SSH: fica só na sua máquina</span>
+terraform output -raw private_key &gt; chave.pem
+chmod 400 chave.pem
+ssh -i chave.pem admin&#64;&lt;ip-publico&gt;
+<span class="t-com"># 7. ao terminar, derruba tudo</span>
+terraform destroy</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 Segurança -->
+  <section id="seguranca" class="wrap sec reveal" aria-labelledby="seg-t">
+    <p class="eyebrow">05 · Segurança</p>
+    <h2 id="seg-t" class="h2">O que está aberto, o que está largo e o que eu endureceria</h2>
+    <div class="grid2">
+      <div class="panel pad">
+        <h3>Portas no security group</h3>
+        <div class="tbl" role="region" aria-label="Regras do security group" tabindex="0">
+          <table>
+            <thead><tr><th scope="col">Direção</th><th scope="col">Porta</th><th scope="col">Origem / destino</th><th scope="col">Para quê</th></tr></thead>
+            <tbody>
+              <tr><td>Entrada</td><td class="mono">22/tcp</td><td class="mono">203.0.113.0/24</td><td>SSH</td></tr>
+              <tr><td>Saída</td><td class="mono">80/tcp</td><td class="mono">0.0.0.0/0</td><td>apt via HTTP</td></tr>
+              <tr><td>Saída</td><td class="mono">443/tcp</td><td class="mono">0.0.0.0/0</td><td>HTTPS</td></tr>
+              <tr class="warn"><td>Entrada</td><td class="mono">80/tcp</td><td>nenhuma regra</td><td>o Nginx roda, mas não é alcançável de fora</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Security groups são stateful: a resposta do SSH volta sem regra de saída. O DNS da VPC não passa pelo security group, então o apt resolve nomes mesmo sem a porta 53 liberada.</p>
+      </div>
+      <div class="panel pad">
+        <h3>Menor privilégio</h3>
+        <p>A <span class="mono">TerraformPolicy</span> libera <span class="mono">ec2:*</span> e <span class="mono">s3:*</span> em <span class="mono">Resource: *</span>. Funciona, mas é bem mais do que "permissões limitadas", como dizia o README.</p>
+        <ul class="dots">
+          <li>Ações específicas (<span class="mono">ec2:RunInstances</span>, <span class="mono">ec2:Describe*</span>...) e recursos por ARN ou por tag com <span class="mono">aws:ResourceTag</span>.</li>
+          <li>Papel com credencial temporária no lugar de usuário IAM com chave de acesso fixa.</li>
+          <li>No bucket, bloqueio de acesso público e criptografia declarados no código, mesmo já sendo padrão da AWS para buckets novos.</li>
+        </ul>
+        <a class="line-link" [href]="'#L' + at('aws_iam_policy.terraform_policy')">ver a política, L{{ at('aws_iam_policy.terraform_policy') }}</a>
+      </div>
+    </div>
+
+    <div class="card pad harden">
+      <h3>Endurecimento para produção</h3>
+      <ol class="hl-list">
+        <li><b>SSH.</b> Trocar a faixa por um IP <span class="mono">/32</span>, ou melhor, fechar a porta 22 e entrar pelo SSM Session Manager com um instance profile (<span class="mono">AmazonSSMManagedInstanceCore</span>). <a [href]="'#L' + at('aws_security_group.main_sg:cidr_blocks')">L{{ at('aws_security_group.main_sg:cidr_blocks') }}</a></li>
+        <li><b>IMDSv2 obrigatório. </b><span class="mono">metadata_options &#123; http_tokens = "required" &#125;</span> na instância, contra roubo de credencial via SSRF. <a [href]="'#L' + at('aws_instance.debian_ec2')">L{{ at('aws_instance.debian_ec2') }}</a></li>
+        <li><b>Estado remoto.</b> Backend S3 com criptografia, versionamento e lock (<span class="mono">use_lockfile</span>). Hoje o state local guarda a chave privada em texto puro. <a [href]="'#L' + at('tls_private_key.ec2_key')">L{{ at('tls_private_key.ec2_key') }}</a></li>
+        <li><b>Tags padrão. </b><span class="mono">default_tags</span> no provider (projeto, dono, ambiente, centro de custo) no lugar de repetir <span class="mono">Name</span> em cada bloco. <a [href]="'#L' + at('provider.aws')">L{{ at('provider.aws') }}</a></li>
+        <li><b>Versões fixas.</b> Bloco <span class="mono">required_providers</span> com versão do <span class="mono">aws</span> e do <span class="mono">tls</span>, e o <span class="mono">.terraform.lock.hcl</span> versionado.</li>
+        <li><b>Disco. </b><span class="mono">gp3</span> com <span class="mono">encrypted = true</span>: mais barato que gp2 e cifrado em repouso. <a [href]="'#L' + at('aws_instance.debian_ec2:root_block_device')">L{{ at('aws_instance.debian_ec2:root_block_device') }}</a></li>
+        <li><b>Web.</b> Publicar o Nginx atrás de um load balancer ou CloudFront com HTTPS, em vez de abrir a porta 80 na instância.</li>
+      </ol>
+    </div>
+
+    <div id="revisao" class="card pad review">
+      <p class="eyebrow">Revisão de 2026</p>
+      <h3>O que impede o apply hoje</h3>
+      <p class="sub">Leitura do código, sem aplicar na AWS. Mantive o arquivo como foi entregue; os ajustes ficam documentados aqui.</p>
+      <ol class="hl-list">
+        <li><span class="mono">aws_route_table_association</span> não aceita <span class="mono">tags</span>: o <span class="mono">terraform validate</span> para no argumento não suportado. <a [href]="'#L' + at('aws_route_table_association.main_association:tags')">L{{ at('aws_route_table_association.main_association:tags') }}</a></li>
+        <li><span class="mono">security_groups</span> recebe nomes e só vale na VPC padrão. Numa VPC própria o certo é <span class="mono">vpc_security_group_ids = [aws_security_group.main_sg.id]</span>. <a [href]="'#L' + at('aws_instance.debian_ec2:security_groups')">L{{ at('aws_instance.debian_ec2:security_groups') }}</a></li>
+        <li>O nome do bucket vira <span class="mono">VExpenses-SeuNome-backup</span>, e o S3 só aceita minúsculas (o nome também precisa ser único no mundo). O bloco <span class="mono">versioning</span> embutido está obsoleto desde o provider 4: o recurso atual é <span class="mono">aws_s3_bucket_versioning</span>. <a [href]="'#L' + at('aws_s3_bucket.backup_bucket:bucket')">L{{ at('aws_s3_bucket.backup_bucket:bucket') }}</a></li>
+        <li><span class="mono">203.0.113.0/24</span> é uma faixa reservada para documentação (RFC 5737). Serve de exemplo, mas nenhum cliente real conecta a partir dela: troque pelo seu IP. <a [href]="'#L' + at('aws_security_group.main_sg:cidr_blocks')">L{{ at('aws_security_group.main_sg:cidr_blocks') }}</a></li>
+        <li>Sem regra de entrada na porta 80, a página padrão do Nginx só aparece por dentro (ou por um túnel SSH).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 06 Custo -->
+  <section id="custo" class="wrap sec reveal" aria-labelledby="custo-t">
+    <p class="eyebrow">06 · Custo</p>
+    <h2 id="custo-t" class="h2">Cabe no free tier, se você lembrar do <span class="mono">destroy</span></h2>
+    <ul class="costs">
+      <li class="panel pad"><span class="tag">EC2</span><h3>t2.micro</h3><p>No free tier clássico (contas criadas antes de 15/07/2025): 750 horas por mês durante 12 meses. Contas novas usam o plano gratuito com créditos; confira no console quais tipos entram.</p></li>
+      <li class="panel pad"><span class="tag">EBS</span><h3>20 GB gp2</h3><p>Dentro dos 30 GB de EBS do free tier clássico. Fora dele, cobrado por GB por mês enquanto o volume existir.</p></li>
+      <li class="panel pad"><span class="tag">IPv4</span><h3>IP público</h3><p>A AWS cobra por hora cada IPv4 público desde fevereiro de 2024; o free tier clássico cobre 750 horas por mês no primeiro ano.</p></li>
+      <li class="panel pad"><span class="tag">S3</span><h3>Bucket versionado</h3><p>Centavos para um backup pequeno, mas toda versão antiga também ocupa espaço e é cobrada.</p></li>
+    </ul>
+    <div class="card pad destroy">
+      <p><b>Terminou de testar? <span class="mono">terraform destroy</span>.</b> Ele remove tudo o que o apply criou. Um bucket com objetos falha no destroy (<span class="mono">BucketNotEmpty</span>): esvazie antes ou use <span class="mono">force_destroy</span> num ambiente de estudo.</p>
+      <p class="note">Preços e regras do free tier mudam. Confira a página de preços da AWS antes de aplicar.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p><a [href]="links.project">Projeto de portfólio de Gustavo Martins Gripaldi.</a> Código de outubro de 2024, página de 2026.</p>
+  <nav aria-label="Links externos" class="foot-links">
+    <a [href]="links.portfolio">Portfólio</a>
+    <a [href]="links.repo">Repositório no GitHub</a>
+  </nav>
+</footer>

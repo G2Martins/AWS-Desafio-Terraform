@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- Template for public/og/aws-terraform.png (1200x630). Rendered by scripts/og.py with Playwright. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Geist; src: url(../public/fonts/geist-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: GeistMono; src: url(../public/fonts/geist-mono-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+  * { margin: 0; box-sizing: border-box; }
+  body { width: 1200px; height: 630px; overflow: hidden; color: #eef2f7; font-family: Geist, sans-serif; position: relative;
+    background: radial-gradient(800px 480px at 100% -10%, rgb(255 181 71 / .16), transparent 60%),
+                radial-gradient(800px 520px at -10% 40%, rgb(60 110 200 / .18), transparent 62%), #07090c; }
+  .dots { position: absolute; inset: 0; background-image: radial-gradient(circle, rgb(160 180 210 / .14) 1.2px, transparent 1.2px); background-size: 24px 24px; }
+  .wrap { position: absolute; inset: 0; padding: 64px 72px; display: flex; flex-direction: column; justify-content: space-between; width: 700px; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; }
+  .brand i { font-style: normal; color: #ffb547; }
+  .eyebrow { font-family: GeistMono, monospace; font-size: 17px; letter-spacing: .16em; text-transform: uppercase; color: #aab5c5; display: flex; align-items: center; gap: 12px; }
+  .eyebrow::before { content: ""; width: 9px; height: 9px; border-radius: 9px; background: #ffb547; }
+  h1 { font-size: 72px; font-weight: 300; letter-spacing: -0.05em; line-height: 1.02; margin-top: 22px; }
+  h1 b { font-weight: 400; color: #ffb547; font-family: GeistMono, monospace; font-size: 60px; letter-spacing: -0.04em; }
+  .foot { font-family: GeistMono, monospace; font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: #8590a2; }
+  svg { position: absolute; right: 60px; top: 50px; }
+  .t { font-family: Geist; font-size: 17px; font-weight: 500; fill: #eef2f7; }
+  .s { font-family: GeistMono; font-size: 13px; fill: #aab5c5; }
+</style>
+</head>
+<body>
+  <div class="dots"></div>
+  <svg width="400" height="530" viewBox="0 0 400 530">
+    <rect x="6" y="6" width="388" height="518" rx="20" fill="#0d1117" stroke="#2b3646"/>
+    <rect x="135" y="26" width="130" height="40" rx="20" fill="none" stroke="#2b3646"/><text class="t" x="200" y="52" text-anchor="middle">Internet</text>
+    <path d="M200 70v40" stroke="#8590a2" stroke-width="1.5"/>
+    <rect x="30" y="122" width="340" height="380" rx="16" fill="none" stroke="#3a4a60" stroke-width="1.5"/><text class="t" x="50" y="152">VPC</text><text class="s" x="92" y="152">10.0.0.0/16</text>
+    <rect x="120" y="104" width="160" height="36" rx="10" fill="#121922" stroke="#2b3646"/><text class="s" x="200" y="127" text-anchor="middle">internet gateway</text>
+    <rect x="50" y="172" width="300" height="312" rx="14" fill="none" stroke="#2b3646"/><text class="t" x="68" y="200">Sub-rede pública</text>
+    <rect x="68" y="216" width="264" height="250" rx="12" fill="none" stroke="#ffb547" stroke-opacity=".6" stroke-dasharray="7 5"/><text class="t" x="86" y="244">Security group</text>
+    <text class="s" x="86" y="270"><tspan fill="#a3e2ab">IN </tspan> 22/tcp</text><text class="s" x="190" y="270"><tspan fill="#8fc6ff">OUT</tspan> 80, 443</text>
+    <rect x="86" y="290" width="228" height="156" rx="12" fill="#121922" stroke="#2b3646"/><text class="t" x="104" y="318">EC2 · t2.micro</text><text class="s" x="104" y="340">Debian 12</text>
+    <rect x="104" y="360" width="192" height="64" rx="10" fill="rgb(255 181 71 / .1)" stroke="#ffb547" stroke-opacity=".7"/><text class="t" x="122" y="388">Nginx</text><text class="s" x="122" y="408">user_data</text>
+  </svg>
+  <div class="wrap">
+    <div class="brand">
+      <svg width="46" height="46" viewBox="0 0 32 32" style="position:static"><rect x="1" y="1" width="30" height="30" rx="8" fill="#ffb547"/><path d="M9 11.5 16 8l7 3.5v9L16 24l-7-3.5z M9 11.5l7 3.5 7-3.5 M16 15v9" fill="none" stroke="#1a1203" stroke-width="2" stroke-linejoin="round"/></svg>
+      <div>AWS <i>·</i> Terraform</div>
+    </div>
+    <div>
+      <p class="eyebrow">Desafio técnico · Infra como código</p>
+      <h1>VPC, EC2 e Nginx descritos num <b>main.tf</b></h1>
+    </div>
+    <p class="foot">Projeto de portfólio de Gustavo Martins Gripaldi</p>
+  </div>
+</body>
+</html>
